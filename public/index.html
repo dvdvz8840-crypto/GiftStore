@@ -555,6 +555,7 @@ let SELECTED_PRODUCT = null;
 let SELECTED_PAY = 'stars';
 let SELECTED_AMT = 50;
 let TOPUP_PAY = 'stars';
+let TG_USER = null;
 
 const BASE = '';
 
@@ -576,25 +577,31 @@ async function api(path, method = 'GET', body = null) {
 //  INIT
 // ═══════════════════════════════════════════════
 async function init() {
-  const tgUser = tg?.initDataUnsafe?.user;
+  TG_USER = tg?.initDataUnsafe?.user || null;
   const startParam = tg?.initDataUnsafe?.start_param;
   const referrerId = startParam?.startsWith('ref_') ? startParam.replace('ref_', '') : null;
 
-  if (tgUser) {
+  if (TG_USER) {
     try {
       const res = await api('/api/users/register', 'POST', {
-        id: tgUser.id,
-        username: tgUser.username,
-        firstName: tgUser.first_name,
+        id: TG_USER.id,
+        username: TG_USER.username,
+        firstName: TG_USER.first_name,
+        photoUrl: TG_USER.photo_url || null,
         referrerId
       });
       USER = res.user;
       IS_ADMIN = res.isAdmin;
     } catch (e) {
-      USER = { id: tgUser.id, username: tgUser.username, firstName: tgUser.first_name, balance: 0, referralCount: 0 };
+      USER = {
+        id: TG_USER.id,
+        username: TG_USER.username,
+        firstName: TG_USER.first_name,
+        balance: 0,
+        referralCount: 0
+      };
     }
   } else {
-    // Dev fallback
     USER = { id: '000', username: 'dev_user', firstName: 'Dev', balance: 100, referralCount: 3 };
     IS_ADMIN = true;
   }
@@ -617,8 +624,15 @@ async function init() {
 // ═══════════════════════════════════════════════
 function updateHomeUI() {
   if (!USER) return;
-  document.getElementById('home-name').textContent = USER.firstName || 'GiftStore';
-  document.getElementById('home-ava').textContent = USER.firstName?.[0] || '🎁';
+  const name = TG_USER?.first_name || USER.firstName || 'GiftStore';
+  document.getElementById('home-name').textContent = name;
+
+  const ava = document.getElementById('home-ava');
+  if (TG_USER?.photo_url) {
+    ava.innerHTML = `<img src="${TG_USER.photo_url}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">`;
+  } else {
+    ava.textContent = name[0] || '🎁';
+  }
 }
 
 async function loadStats() {
@@ -819,11 +833,22 @@ function copyRefLink() {
 // ═══════════════════════════════════════════════
 function updateProfileUI() {
   if (!USER) return;
-  document.getElementById('p-name').textContent = USER.firstName || 'User';
-  document.getElementById('p-username').textContent = USER.username ? `@${USER.username}` : '—';
+  const firstName = TG_USER?.first_name || USER.firstName || 'User';
+  const lastName = TG_USER?.last_name || '';
+  const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+  const username = TG_USER?.username || USER.username;
+
+  document.getElementById('p-name').textContent = fullName;
+  document.getElementById('p-username').textContent = username ? `@${username}` : '—';
   document.getElementById('p-balance').textContent = (USER.balance || 0) + ' ⭐';
   document.getElementById('p-refs').textContent = USER.referralCount || 0;
-  document.getElementById('p-ava').textContent = USER.firstName?.[0] || '👤';
+
+  const ava = document.getElementById('p-ava');
+  if (TG_USER?.photo_url) {
+    ava.innerHTML = `<img src="${TG_USER.photo_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">`;
+  } else {
+    ava.textContent = firstName[0] || '👤';
+  }
 }
 
 async function loadMyOrders() {
