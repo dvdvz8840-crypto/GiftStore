@@ -1,1 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GiftStore</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;900&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0d14;--bg2:#141420;--bg3:#1a1a2e;--card:#1e1e30;--card2:#252538;
+    --accent:#7c6cfc;--accent2:#a78bfa;--gold:#f5c842;--star:#FFD700;
+    --green:#34d399;--red:#f87171;--text:#f0f0ff;--muted:#8888aa;
+    --border:rgba(124,108,252,0.18);--glow:0 0 28px rgba(124,108,252,0.28);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;overflow:hidden;max-width:480px;margin:0 auto}
+  .app{display:flex;flex-direction:column;height:100vh;overflow:hidden;position:relative}
+  .bg-mesh{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .bg-mesh::before{content:'';position:absolute;top:-80px;left:-80px;width:300px;height:300px;background:radial-gradient(circle,rgba(124,108,252,.15) 0%,transparent 70%);filter:blur(40px)}
+  .bg-mesh::after{content:'';position:absolute;bottom:120px;right:-60px;width:240px;height:240px;background:radial-gradient(circle,rgba(167,139,250,.1) 0%,transparent 70%);filter:blur(50px)}
+  .page{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:96px;position:relative;z-index:1;scrollbar-width:none}
+  .page::-webkit-scrollbar{display:none}
+  .screen{display:none;animation:fadeUp .3s ease}
+  .screen.active{display:block}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
+  /* NAV */
+  .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:100;padding:0 16px 22px}
+  .nav-inner{background:rgba(20,20,40,.9);backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:28px;display:flex;align-items:center;justify-content:space-around;padding:10px 6px;box-shadow:0 8px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06)}
+  .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 14px;border-radius:18px;transition:all .25s;-webkit-user-select:none;user-select:none}
+  .nav-item .icon{font-size:22px;transition:transform .25s}
+  .nav-item .label{font-size:10px;font-weight:700;color:var(--muted);transition:color .25s;letter-spacing:.3px}
+  .nav-item.active{background:linear-gradient(135deg,rgba(124,108,252,.22),rgba(167,139,250,.12));box-shadow:0 0 0 1px rgba(124,108,252,.3)}
+  .nav-item.active .icon{transform:scale(1.15)}
+  .nav-item.active .label{color:var(--accent2)}
+  .nav-item:active{transform:scale(.93)}
+
+  /* COMMON */
+  .sec-title{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:700;padding:0 20px 10px;display:flex;align-items:center;gap:8px}
+  .sec-title span{color:var(--muted);font-size:12px;font-family:'Nunito',sans-serif;font-weight:600}
+  .card{background:var(--card);border-radius:18px;border:1px solid var(--border)}
+  .btn-primary{border:none;border-radius:14px;padding:14px;background:linear-gradient(135deg,#7c6cfc,#a78bfa);color:#fff;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;cursor:pointer;width:100%;transition:transform .2s,opacity .2s}
+  .btn-primary:active{transform:scale(.97)}
+  .btn-primary:disabled{opacity:.5;pointer-events:none}
+  .loader{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+
+  /* ── HOME ── */
+  .hero{padding:28px 20px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+  .hero-left .greeting{font-size:12px;color:var(--muted)}
+  .hero-left .name{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700}
+  .hero-ava{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#7c6cfc,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 16px rgba(124,108,252,.5)}
+  .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px 16px}
+  .stat-card{background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border);position:relative;overflow:hidden}
+  .stat-card::before{content:attr(data-icon);position:absolute;right:10px;top:10px;font-size:26px;opacity:.12}
+  .stat-card .sl{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .stat-card .sv{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;margin-top:4px}
+  .stat-card .ss{font-size:11px;color:var(--green);margin-top:2px}
+  .raffle-scroll{display:flex;gap:12px;padding:0 20px 16px;overflow-x:auto;scrollbar-width:none}
+  .raffle-scroll::-webkit-scrollbar{display:none}
+  .raffle-card{flex-shrink:0;width:200px;background:linear-gradient(135deg,#1e1e38,#252545);border-radius:20px;padding:16px;border:1px solid var(--border)}
+  .raffle-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;margin-bottom:10px}
+  .raffle-emoji{font-size:40px;margin:8px 0}
+  .raffle-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px}
+  .raffle-sub{font-size:11px;color:var(--muted);margin-bottom:10px}
+  .raffle-timer{font-size:11px;color:var(--accent2);font-weight:700;margin-bottom:10px}
+  .raffle-btn{width:100%;border:none;border-radius:12px;padding:9px;background:linear-gradient(135deg,#7c6cfc,#a78bfa);color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;cursor:pointer}
+  .feed{padding:0 20px 10px;display:flex;flex-direction:column;gap:8px}
+  .feed-item{background:var(--card);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;border:1px solid var(--border)}
+  .feed-ava{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:linear-gradient(135deg,rgba(124,108,252,.15),rgba(167,139,250,.1))}
+  .feed-text{flex:1}
+  .feed-text .fn{font-size:13px;font-weight:700}
+  .feed-text .fs{font-size:11px;color:var(--muted)}
+  .feed-val{font-size:13px;font-weight:700;color:var(--star)}
+
+  /* ── SHOP ── */
+  .shop-header{padding:28px 20px 12px;display:flex;justify-content:space-between;align-items:flex-end}
+  .shop-htitle{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:800}
+  .admin-btn{background:rgba(124,108,252,.15);border:1px solid var(--border);border-radius:12px;padding:7px 13px;color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer}
+  .filter-row{display:flex;gap:8px;padding:0 20px 14px;overflow-x:auto;scrollbar-width:none}
+  .filter-row::-webkit-scrollbar{display:none}
+  .pill{flex-shrink:0;border-radius:20px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;border:1px solid var(--border);background:var(--card);color:var(--muted)}
+  .pill.active{background:linear-gradient(135deg,#7c6cfc,#a78bfa);color:#fff;border-color:transparent}
+  .products{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px}
+  .prod-card{background:var(--card);border-radius:20px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:transform .2s;position:relative}
+  .prod-card:active{transform:scale(.96)}
+  .prod-hot::after{content:'🔥 хит';position:absolute;top:10px;right:10px;background:rgba(245,200,66,.18);color:var(--gold);border:1px solid rgba(245,200,66,.3);border-radius:10px;padding:2px 8px;font-size:10px;font-weight:700}
+  .prod-out{opacity:.5;pointer-events:none}
+  .prod-img{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:54px;background:linear-gradient(135deg,var(--bg3),var(--card2))}
+  .prod-body{padding:12px}
+  .prod-name{font-weight:700;font-size:13px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prod-stock{font-size:11px;color:var(--muted);margin-bottom:8px}
+  .prod-buy{width:100%;border:none;border-radius:12px;padding:9px;background:linear-gradient(135deg,#7c6cfc,#a78bfa);color:#fff;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px}
+
+  /* ── REFERRAL ── */
+  .ref-hero{padding:28px 20px 16px;text-align:center}
+  .ref-bigicon{font-size:60px;margin-bottom:12px}
+  .ref-title{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:800;margin-bottom:6px}
+  .ref-sub{font-size:13px;color:var(--muted);line-height:1.6}
+  .ref-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:0 20px 16px}
+  .ref-stat{background:var(--card);border-radius:16px;padding:14px 10px;text-align:center;border:1px solid var(--border)}
+  .ref-stat .rv{font-family:'Unbounded',sans-serif;font-size:17px;font-weight:800}
+  .ref-stat .rl{font-size:10px;color:var(--muted);font-weight:700;margin-top:2px}
+  .ref-link-box{margin:0 20px 16px;background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border)}
+  .ref-link-label{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px}
+  .ref-link-row{display:flex;gap:8px}
+  .ref-link-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px;color:var(--muted);font-size:12px;font-family:'Nunito',sans-serif;outline:none}
+  .copy-btn{background:linear-gradient(135deg,#7c6cfc,#a78bfa);border:none;border-radius:12px;padding:10px 14px;color:#fff;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap}
+  .ref-list-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;padding:0 20px 10px}
+  .ref-list{padding:0 20px;display:flex;flex-direction:column;gap:8px}
+  .ref-item{background:var(--card);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;border:1px solid var(--border)}
+  .ref-ava{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(124,108,252,.1)}
+  .ref-name{font-size:13px;font-weight:700}
+  .ref-date{font-size:11px;color:var(--muted)}
+  .ref-earned{font-size:12px;font-weight:700;color:var(--star);margin-left:auto}
+
+  /* ── PROFILE ── */
+  .profile-hero{padding:32px 20px 16px;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .p-ava-wrap{position:relative;margin-bottom:14px}
+  .p-ava{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#7c6cfc,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:36px;border:3px solid rgba(124,108,252,.4);box-shadow:0 0 28px rgba(124,108,252,.4)}
+  .p-badge{position:absolute;bottom:0;right:0;background:var(--card);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid var(--bg)}
+  .p-name{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:800;margin-bottom:3px}
+  .p-username{font-size:13px;color:var(--muted)}
+  .balance-card{margin:0 20px 14px;background:linear-gradient(135deg,#2a2040,#1e1e38);border-radius:22px;padding:20px;border:1px solid rgba(124,108,252,.25);position:relative;overflow:hidden;box-shadow:var(--glow)}
+  .balance-card::before{content:'⭐';position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:50px;opacity:.08}
+  .bal-label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .bal-value{font-family:'Unbounded',sans-serif;font-size:32px;font-weight:900;color:var(--star);margin:4px 0 12px}
+  .bal-row{display:flex;gap:8px}
+  .bal-btn{flex:1;border:none;border-radius:14px;padding:12px;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:transform .2s}
+  .bal-btn:active{transform:scale(.95)}
+  .bal-btn.primary{background:linear-gradient(135deg,#7c6cfc,#a78bfa);color:#fff}
+  .bal-btn.secondary{background:rgba(124,108,252,.12);color:var(--accent2);border:1px solid var(--border)}
+  .prof-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px 14px}
+  .pstat{background:var(--card);border-radius:16px;padding:14px;border:1px solid var(--border)}
+  .pstat .psi{font-size:20px;margin-bottom:6px}
+  .pstat .psv{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:800}
+  .pstat .psl{font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+  .promo-box{margin:0 20px 14px;background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border)}
+  .promo-label{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px}
+  .promo-row{display:flex;gap:8px}
+  .promo-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:11px 14px;color:var(--text);font-size:14px;font-family:'Nunito',sans-serif;outline:none;letter-spacing:2px;font-weight:700;transition:border-color .2s}
+  .promo-input:focus{border-color:var(--accent)}
+  .promo-input::placeholder{color:var(--muted);letter-spacing:0;font-weight:400}
+  .promo-btn{background:linear-gradient(135deg,#7c6cfc,#a78bfa);border:none;border-radius:12px;padding:11px 16px;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+  .prof-orders{padding:0 20px}
+  .prof-orders-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px}
+  .order-item{background:var(--card);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;border:1px solid var(--border);margin-bottom:8px}
+  .order-emoji{font-size:24px}
+  .order-info{flex:1}
+  .order-name{font-size:13px;font-weight:700}
+  .order-date{font-size:11px;color:var(--muted)}
+  .order-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px}
+  .status-pending{background:rgba(245,200,66,.15);color:var(--gold)}
+  .status-delivered{background:rgba(52,211,153,.15);color:var(--green)}
+  .status-cancelled{background:rgba(248,113,113,.15);color:var(--red)}
+
+  /* ── ADMIN ── */
+  .admin-overlay{position:fixed;inset:0;z-index:300;background:var(--bg);overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(.32,.72,0,1);scrollbar-width:none;max-width:480px;left:50%;margin-left:-240px}
+  @media(max-width:480px){.admin-overlay{left:0;margin-left:0}}
+  .admin-overlay.open{transform:translateY(0)}
+  .admin-overlay::-webkit-scrollbar{display:none}
+  .admin-top{display:flex;align-items:center;gap:12px;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10}
+  .admin-back{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700}
+  .admin-title{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:800}
+  .admin-tabs{display:flex;gap:8px;padding:14px 20px;overflow-x:auto;scrollbar-width:none}
+  .admin-tabs::-webkit-scrollbar{display:none}
+  .admin-tab{flex-shrink:0;background:var(--card);border-radius:14px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--muted);transition:all .2s}
+  .admin-tab.active{background:linear-gradient(135deg,#7c6cfc,#a78bfa);color:#fff;border-color:transparent}
+  .admin-content{padding:0 20px 100px}
+  .admin-section{display:none}
+  .admin-section.active{display:block}
+  .admin-order{background:var(--card);border-radius:16px;padding:14px;border:1px solid var(--border);margin-bottom:10px}
+  .ao-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .ao-emoji{font-size:26px}
+  .ao-name{font-size:14px;font-weight:700}
+  .ao-price{font-size:13px;color:var(--star);font-weight:700;margin-left:auto}
+  .ao-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .ao-tag{font-size:11px;padding:3px 9px;border-radius:8px;font-weight:700}
+  .tag-user{background:rgba(124,108,252,.15);color:var(--accent2)}
+  .tag-time{background:rgba(136,136,170,.12);color:var(--muted)}
+  .tag-pending{background:rgba(245,200,66,.15);color:var(--gold)}
+  .tag-delivered{background:rgba(52,211,153,.15);color:var(--green)}
+  .tag-cancelled{background:rgba(248,113,113,.15);color:var(--red)}
+  .ao-actions{display:flex;gap:8px}
+  .ao-act-btn{flex:1;border:none;border-radius:10px;padding:8px;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;cursor:pointer}
+  .ao-act-btn.deliver{background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3)}
+  .ao-act-btn.cancel{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.3)}
+  .form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+  .form-label{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.3px}
+  .form-input{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Nunito',sans-serif;outline:none;transition:border-color .2s}
+  .form-input:focus{border-color:var(--accent)}
+  .form-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .admin-prod{background:var(--card);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;border:1px solid var(--border);margin-bottom:10px}
+  .ap-icon{font-size:32px}
+  .ap-info{flex:1}
+  .ap-name{font-size:14px;font-weight:700}
+  .ap-meta{font-size:11px;color:var(--muted);margin-top:2px}
+  .ap-actions{display:flex;gap:8px}
+  .ap-btn{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:7px 10px;color:var(--muted);font-size:14px;cursor:pointer}
+  .ap-btn.del{color:var(--red)}
+  .promo-item{background:var(--card);border-radius:14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);margin-bottom:8px}
+  .promo-code{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px}
+  .promo-info{font-size:11px;color:var(--muted);margin-top:3px}
+
+  /* ── MODALS ── */
+  .modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+  .modal-overlay.open{opacity:1;pointer-events:all}
+  .modal-sheet{background:var(--bg2);border-radius:28px 28px 0 0;padding:20px;width:100%;max-width:480px;transform:translateY(100%);transition:transform .35s cubic-bezier(.32,.72,0,1);border-top:1px solid var(--border);max-height:90vh;overflow-y:auto;scrollbar-width:none}
+  .modal-sheet::-webkit-scrollbar{display:none}
+  .modal-overlay.open .modal-sheet{transform:translateY(0)}
+  .modal-handle{width:40px;height:4px;border-radius:2px;background:var(--card2);margin:0 auto 20px}
+  .modal-title{font-family:'Unbounded',sans-serif;font-size:17px;font-weight:800;text-align:center;margin-bottom:4px}
+  .modal-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:20px;line-height:1.6}
+  .buy-prod-img{font-size:72px;text-align:center;margin:10px 0}
+  .buy-prod-name{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;text-align:center;margin-bottom:6px}
+  .buy-prod-desc{font-size:13px;color:var(--muted);text-align:center;margin-bottom:20px}
+  .pay-methods{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+  .pay-method{background:var(--card);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;border:2px solid var(--border);cursor:pointer;transition:all .2s}
+  .pay-method.sel{border-color:var(--accent);background:rgba(124,108,252,.1)}
+  .pay-method-icon{font-size:24px;width:36px;text-align:center}
+  .pay-method-info{flex:1}
+  .pay-method-name{font-size:14px;font-weight:700}
+  .pay-method-sub{font-size:11px;color:var(--muted)}
+  .pay-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;transition:all .2s}
+  .pay-method.sel .pay-check{background:var(--accent);border-color:var(--accent)}
+  .pay-method.sel .pay-check::after{content:'✓';color:#fff;font-size:11px;font-weight:900}
+  .topup-amounts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .amt-chip{background:var(--card);border-radius:14px;padding:12px 6px;text-align:center;cursor:pointer;border:2px solid var(--border);transition:all .2s}
+  .amt-chip .av{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:800;color:var(--star)}
+  .amt-chip .al{font-size:10px;color:var(--muted)}
+  .amt-chip.sel{border-color:var(--accent);background:rgba(124,108,252,.1)}
+  .delivery-anim{font-size:76px;text-align:center;margin:16px 0;animation:float 2s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  .delivery-title{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:900;text-align:center;margin-bottom:8px;color:var(--green)}
+  .btn-outline{width:100%;border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--card);color:var(--text);font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;cursor:pointer}
+
+  /* EDIT MODAL */
+  .edit-modal-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+  .edit-modal-overlay.open{opacity:1;pointer-events:all}
+  .edit-modal-sheet{background:var(--bg2);border-radius:28px 28px 0 0;padding:20px;width:100%;max-width:480px;transform:translateY(100%);transition:transform .35s cubic-bezier(.32,.72,0,1);border-top:1px solid var(--border)}
+  .edit-modal-overlay.open .edit-modal-sheet{transform:translateY(0)}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px 20px;font-size:14px;font-weight:700;white-space:nowrap;opacity:0;transition:all .3s;z-index:500;box-shadow:0 8px 30px rgba(0,0,0,.4);pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .empty{text-align:center;padding:30px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="bg-mesh"></div>
+<div class="page">
+
+  <!-- ═══ HOME ═══ -->
+  <div class="screen active" id="screen-home">
+    <div class="hero">
+      <div class="hero-left">
+        <div class="greeting">Добро пожаловать 👋</div>
+        <div class="name" id="home-name">GiftStore</div>
+      </div>
+      <div class="hero-ava" id="home-ava">🎁</div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card" data-icon="👤"><div class="sl">Пользователей</div><div class="sv" id="stat-users">—</div><div class="ss">открыли мини-апп</div></div>
+      <div class="stat-card" data-icon="🛍"><div class="sl">Покупок</div><div class="sv" id="stat-orders">—</div><div class="ss">за всё время</div></div>
+      <div class="stat-card" data-icon="⭐"><div class="sl">Выдано ⭐</div><div class="sv" id="stat-stars">—</div><div class="ss">суммарно</div></div>
+      <div class="stat-card" data-icon="🎰"><div class="sl">Розыгрышей</div><div class="sv">2</div><div class="ss">2 активных</div></div>
+    </div>
+    <div class="sec-title">🎰 Розыгрыши <span>2 активных</span></div>
+    <div class="raffle-scroll">
+      <div class="raffle-card">
+        <div class="raffle-badge">● Live</div>
+        <div class="raffle-emoji">🐻</div>
+        <div class="raffle-title">Мишка Premium</div>
+        <div class="raffle-sub">Приз: 100 ⭐ звёзд</div>
+        <div class="raffle-timer" id="timer1">⏱ 02:14:38</div>
+        <button class="raffle-btn" onclick="showToast('🎟 Вы участвуете!')">Участвовать</button>
+      </div>
+      <div class="raffle-card">
+        <div class="raffle-badge">● Live</div>
+        <div class="raffle-emoji">💎</div>
+        <div class="raffle-title">Алмаз Rare</div>
+        <div class="raffle-sub">Приз: 500 ⭐ звёзд</div>
+        <div class="raffle-timer" id="timer2">⏱ 05:42:17</div>
+        <button class="raffle-btn" onclick="showToast('🎟 Вы участвуете!')">Участвовать</button>
+      </div>
+    </div>
+    <div class="sec-title">📡 Лента покупок</div>
+    <div class="feed" id="feed-list">
+      <div class="loader">Загрузка...</div>
+    </div>
+  </div>
+
+  <!-- ═══ SHOP ═══ -->
+  <div class="screen" id="screen-shop">
+    <div class="shop-header">
+      <div class="shop-htitle">Магазин</div>
+      <div class="admin-btn" id="admin-btn" style="display:none" onclick="openAdmin()">⚙️ Админ</div>
+    </div>
+    <div class="filter-row">
+      <div class="pill active" onclick="filterPill(this,'all')">Все</div>
+      <div class="pill" onclick="filterPill(this,'available')">В наличии</div>
+      <div class="pill" onclick="filterPill(this,'unlimited')">Анлимит</div>
+    </div>
+    <div class="products" id="products-grid">
+      <div class="loader" style="grid-column:1/-1">Загрузка товаров...</div>
+    </div>
+  </div>
+
+  <!-- ═══ REFERRAL ═══ -->
+  <div class="screen" id="screen-ref">
+    <div class="ref-hero">
+      <div class="ref-bigicon">🤝</div>
+      <div class="ref-title">Пригласи друзей</div>
+      <div class="ref-sub">Получай <b>10 ⭐</b> за каждого<br>приглашённого друга</div>
+    </div>
+    <div class="ref-stats">
+      <div class="ref-stat"><div class="rv" id="ref-count">0</div><div class="rl">Рефералов</div></div>
+      <div class="ref-stat"><div class="rv" id="ref-earned" style="color:var(--star)">0⭐</div><div class="rl">Заработано</div></div>
+      <div class="ref-stat"><div class="rv" style="color:var(--green)">10⭐</div><div class="rl">За 1 друга</div></div>
+    </div>
+    <div class="ref-link-box">
+      <div class="ref-link-label">🔗 Ваша реферальная ссылка</div>
+      <div class="ref-link-row">
+        <input class="ref-link-input" id="ref-link" value="Загрузка..." readonly>
+        <button class="copy-btn" onclick="copyRefLink()">Копировать</button>
+      </div>
+    </div>
+    <div class="ref-list-title">👥 Мои рефералы</div>
+    <div class="ref-list" id="ref-list">
+      <div class="loader">Загрузка...</div>
+    </div>
+  </div>
+
+  <!-- ═══ PROFILE ═══ -->
+  <div class="screen" id="screen-profile">
+    <div class="profile-hero">
+      <div class="p-ava-wrap">
+        <div class="p-ava" id="p-ava">👤</div>
+        <div class="p-badge">⭐</div>
+      </div>
+      <div class="p-name" id="p-name">—</div>
+      <div class="p-username" id="p-username">@—</div>
+    </div>
+    <div class="balance-card">
+      <div class="bal-label">Баланс</div>
+      <div class="bal-value" id="p-balance">0 ⭐</div>
+      <div class="bal-row">
+        <button class="bal-btn primary" onclick="openTopup()">+ Пополнить</button>
+        <button class="bal-btn secondary" onclick="setTab('shop',document.querySelector('.nav-item:nth-child(2)'))">В магазин</button>
+      </div>
+    </div>
+    <div class="prof-stats">
+      <div class="pstat"><div class="psi">👥</div><div class="psv" id="p-refs">0</div><div class="psl">Рефералов</div></div>
+      <div class="pstat"><div class="psi">🛍</div><div class="psv" id="p-orders-count">0</div><div class="psl">Покупок</div></div>
+    </div>
+    <div class="promo-box">
+      <div class="promo-label">🎁 Промокод</div>
+      <div class="promo-row">
+        <input class="promo-input" id="promo-input" placeholder="Введите код...">
+        <button class="promo-btn" onclick="applyPromo()">Применить</button>
+      </div>
+    </div>
+    <div class="prof-orders">
+      <div class="prof-orders-title">📦 Мои заказы</div>
+      <div id="my-orders"><div class="loader">Загрузка...</div></div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-inner">
+    <div class="nav-item active" onclick="setTab('home',this)"><div class="icon">🏠</div><div class="label">Главная</div></div>
+    <div class="nav-item" onclick="setTab('shop',this)"><div class="icon">🛍</div><div class="label">Магазин</div></div>
+    <div class="nav-item" onclick="setTab('ref',this)"><div class="icon">🤝</div><div class="label">Рефералка</div></div>
+    <div class="nav-item" onclick="setTab('profile',this)"><div class="icon">👤</div><div class="label">Профиль</div></div>
+  </div>
+</div>
+</div><!-- /app -->
+
+<!-- ═══ BUY MODAL ═══ -->
+<div class="modal-overlay" id="buy-modal" onclick="bgClose(event,'buy-modal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="buy-prod-img" id="bm-img">🐻</div>
+    <div class="buy-prod-name" id="bm-name">—</div>
+    <div class="buy-prod-desc" id="bm-desc">—</div>
+    <div class="pay-methods" id="buy-pay-methods">
+      <div class="pay-method sel" onclick="selPay(this,'stars')">
+        <div class="pay-method-icon">⭐</div>
+        <div class="pay-method-info"><div class="pay-method-name">Баланс звёзд</div><div class="pay-method-sub" id="bm-bal-info">Баланс: 0 ⭐</div></div>
+        <div class="pay-check"></div>
+      </div>
+      <div class="pay-method" onclick="selPay(this,'ton')">
+        <div class="pay-method-icon">💎</div>
+        <div class="pay-method-info"><div class="pay-method-name">CryptoBot — TON</div><div class="pay-method-sub">Оплата через @send</div></div>
+        <div class="pay-check"></div>
+      </div>
+      <div class="pay-method" onclick="selPay(this,'usdt')">
+        <div class="pay-method-icon">💵</div>
+        <div class="pay-method-info"><div class="pay-method-name">CryptoBot — USDT</div><div class="pay-method-sub">Оплата через @send</div></div>
+        <div class="pay-check"></div>
+      </div>
+    </div>
+    <button class="btn-primary" id="bm-confirm" onclick="confirmBuy()">Купить за <span id="bm-price">0</span> ⭐</button>
+  </div>
+</div>
+
+<!-- ═══ DELIVERY MODAL ═══ -->
+<div class="modal-overlay" id="delivery-modal" onclick="bgClose(event,'delivery-modal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="delivery-anim" id="dm-emoji">🐻</div>
+    <div class="delivery-title">Заказ принят! 🎉</div>
+    <div class="delivery-sub">Ваш <b id="dm-name">—</b> уже в пути.<br><br>Ожидайте доставку — мы пришлём<br>уведомление в Telegram!</div>
+    <button class="btn-outline" onclick="closeModal('delivery-modal')">Отлично, понял!</button>
+  </div>
+</div>
+
+<!-- ═══ TOPUP MODAL ═══ -->
+<div class="modal-overlay" id="topup-modal" onclick="bgClose(event,'topup-modal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Пополнить баланс</div>
+    <div class="modal-sub">Выберите метод и сумму</div>
+    <div class="pay-methods" id="topup-pay-methods">
+      <div class="pay-method sel" onclick="selPay(this,'stars')">
+        <div class="pay-method-icon">⭐</div>
+        <div class="pay-method-info"><div class="pay-method-name">Telegram Stars</div><div class="pay-method-sub">Мгновенное зачисление</div></div>
+        <div class="pay-check"></div>
+      </div>
+      <div class="pay-method" onclick="selPay(this,'ton')">
+        <div class="pay-method-icon">💎</div>
+        <div class="pay-method-info"><div class="pay-method-name">TON через @send</div><div class="pay-method-sub">CryptoBot · мгновенно</div></div>
+        <div class="pay-check"></div>
+      </div>
+      <div class="pay-method" onclick="selPay(this,'usdt')">
+        <div class="pay-method-icon">💵</div>
+        <div class="pay-method-info"><div class="pay-method-name">USDT через @send</div><div class="pay-method-sub">CryptoBot · мгновенно</div></div>
+        <div class="pay-check"></div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px">Выберите сумму</div>
+    <div class="topup-amounts" id="topup-amounts">
+      <div class="amt-chip sel" onclick="selAmt(this,50)"><div class="av">50 ⭐</div><div class="al">Stars</div></div>
+      <div class="amt-chip" onclick="selAmt(this,100)"><div class="av">100 ⭐</div><div class="al">Stars</div></div>
+      <div class="amt-chip" onclick="selAmt(this,250)"><div class="av">250 ⭐</div><div class="al">Stars</div></div>
+      <div class="amt-chip" onclick="selAmt(this,500)"><div class="av">500 ⭐</div><div class="al">Stars</div></div>
+      <div class="amt-chip" onclick="selAmt(this,1000)"><div class="av">1000 ⭐</div><div class="al">Stars</div></div>
+      <div class="amt-chip" onclick="selAmt(this,2500)"><div class="av">2500 ⭐</div><div class="al">Stars</div></div>
+    </div>
+    <button class="btn-primary" onclick="confirmTopup()">Пополнить</button>
+  </div>
+</div>
+
+<!-- ═══ ADMIN PANEL ═══ -->
+<div class="admin-overlay" id="admin-panel">
+  <div class="admin-top">
+    <button class="admin-back" onclick="closeAdmin()">← Назад</button>
+    <div class="admin-title">⚙️ Панель Админа</div>
+  </div>
+  <div class="admin-tabs">
+    <div class="admin-tab active" onclick="adminTab(this,'admin-orders-sec')">📦 Заказы</div>
+    <div class="admin-tab" onclick="adminTab(this,'admin-prods-sec')">🏷 Товары</div>
+    <div class="admin-tab" onclick="adminTab(this,'admin-add-sec')">+ Добавить</div>
+    <div class="admin-tab" onclick="adminTab(this,'admin-promos-sec')">🎁 Промо</div>
+    <div class="admin-tab" onclick="adminTab(this,'admin-stats-sec')">📊 Стата</div>
+  </div>
+  <div class="admin-content">
+
+    <!-- Orders -->
+    <div class="admin-section active" id="admin-orders-sec">
+      <div id="admin-orders-list"><div class="loader">Загрузка...</div></div>
+    </div>
+
+    <!-- Products -->
+    <div class="admin-section" id="admin-prods-sec">
+      <div id="admin-prods-list"><div class="loader">Загрузка...</div></div>
+    </div>
+
+    <!-- Add product -->
+    <div class="admin-section" id="admin-add-sec">
+      <div class="form-row"><div class="form-label">ЭМОДЗИ ТОВАРА</div><input class="form-input" id="af-emoji" placeholder="🎁"></div>
+      <div class="form-row"><div class="form-label">НАЗВАНИЕ</div><input class="form-input" id="af-name" placeholder="Мишка Premium"></div>
+      <div class="form-row"><div class="form-label">ОПИСАНИЕ</div><input class="form-input" id="af-desc" placeholder="Краткое описание"></div>
+      <div class="form-2col">
+        <div class="form-row"><div class="form-label">ЦЕНА (⭐)</div><input class="form-input" id="af-price" type="number" placeholder="15"></div>
+        <div class="form-row"><div class="form-label">ЛИМИТ (пусто = ∞)</div><input class="form-input" id="af-limit" type="number" placeholder="∞"></div>
+      </div>
+      <button class="btn-primary" onclick="addProduct()">Добавить товар</button>
+    </div>
+
+    <!-- Promos -->
+    <div class="admin-section" id="admin-promos-sec">
+      <div style="margin-bottom:16px">
+        <div class="form-row"><div class="form-label">КОД ПРОМОКОДА</div><input class="form-input" id="pf-code" placeholder="GIFT2025" style="text-transform:uppercase"></div>
+        <div class="form-2col">
+          <div class="form-row"><div class="form-label">БОНУС (⭐)</div><input class="form-input" id="pf-amount" type="number" placeholder="50"></div>
+          <div class="form-row"><div class="form-label">МАКС. ИСПОЛЬЗОВАНИЙ</div><input class="form-input" id="pf-maxuses" type="number" placeholder="∞"></div>
+        </div>
+        <button class="btn-primary" onclick="addPromo()">Создать промокод</button>
+      </div>
+      <div id="admin-promos-list"><div class="loader">Загрузка...</div></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="admin-section" id="admin-stats-sec">
+      <div class="stats-grid" style="padding:0 0 16px">
+        <div class="stat-card" data-icon="👤"><div class="sl">Пользователей</div><div class="sv" id="as-users">—</div></div>
+        <div class="stat-card" data-icon="🛍"><div class="sl">Заказов</div><div class="sv" id="as-orders">—</div></div>
+        <div class="stat-card" data-icon="⭐"><div class="sl">Выдано ⭐</div><div class="sv" id="as-stars">—</div></div>
+        <div class="stat-card" data-icon="⏳"><div class="sl">Ожидают</div><div class="sv" id="as-pending">—</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Edit product modal -->
+<div class="edit-modal-overlay" id="edit-modal">
+  <div class="edit-modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="margin-bottom:16px">Редактировать товар</div>
+    <input type="hidden" id="edit-id">
+    <div class="form-row"><div class="form-label">ЭМОДЗИ</div><input class="form-input" id="edit-emoji"></div>
+    <div class="form-row"><div class="form-label">НАЗВАНИЕ</div><input class="form-input" id="edit-name"></div>
+    <div class="form-row"><div class="form-label">ОПИСАНИЕ</div><input class="form-input" id="edit-desc"></div>
+    <div class="form-2col">
+      <div class="form-row"><div class="form-label">ЦЕНА (⭐)</div><input class="form-input" id="edit-price" type="number"></div>
+      <div class="form-row"><div class="form-label">ЛИМИТ</div><input class="form-input" id="edit-limit" type="number" placeholder="∞"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-outline" style="flex:1" onclick="closeEditModal()">Отмена</button>
+      <button class="btn-primary" style="flex:1" onclick="saveEdit()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const tg = window.Telegram?.WebApp;
+tg?.expand();
+tg?.setBackgroundColor('#0d0d14');
+
+let USER = null;
+let IS_ADMIN = false;
+let ALL_PRODUCTS = [];
+let SELECTED_PRODUCT = null;
+let SELECTED_PAY = 'stars';
+let SELECTED_AMT = 50;
+let TOPUP_PAY = 'stars';
+
+const BASE = '';
+
+// ═══════════════════════════════════════════════
+//  API
+// ═══════════════════════════════════════════════
+async function api(path, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (USER) opts.headers['userid'] = USER.id;
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(BASE + path, opts);
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+async function init() {
+  const tgUser = tg?.initDataUnsafe?.user;
+  const startParam = tg?.initDataUnsafe?.start_param;
+  const referrerId = startParam?.startsWith('ref_') ? startParam.replace('ref_', '') : null;
+
+  if (tgUser) {
+    try {
+      const res = await api('/api/users/register', 'POST', {
+        id: tgUser.id,
+        username: tgUser.username,
+        firstName: tgUser.first_name,
+        referrerId
+      });
+      USER = res.user;
+      IS_ADMIN = res.isAdmin;
+    } catch (e) {
+      USER = { id: tgUser.id, username: tgUser.username, firstName: tgUser.first_name, balance: 0, referralCount: 0 };
+    }
+  } else {
+    // Dev fallback
+    USER = { id: '000', username: 'dev_user', firstName: 'Dev', balance: 100, referralCount: 3 };
+    IS_ADMIN = true;
+  }
+
+  updateHomeUI();
+  updateProfileUI();
+  loadStats();
+  loadProducts();
+  loadFeed();
+  loadReferrals();
+  loadMyOrders();
+
+  if (IS_ADMIN) {
+    document.getElementById('admin-btn').style.display = 'block';
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  HOME
+// ═══════════════════════════════════════════════
+function updateHomeUI() {
+  if (!USER) return;
+  document.getElementById('home-name').textContent = USER.firstName || 'GiftStore';
+  document.getElementById('home-ava').textContent = USER.firstName?.[0] || '🎁';
+}
+
+async function loadStats() {
+  try {
+    const s = await api('/api/stats');
+    document.getElementById('stat-users').textContent = fmt(s.totalUsers);
+    document.getElementById('stat-orders').textContent = fmt(s.totalOrders);
+    document.getElementById('stat-stars').textContent = fmt(s.totalStarsGiven);
+  } catch {}
+}
+
+function fmt(n) {
+  if (n >= 1000) return (n/1000).toFixed(1).replace('.0','') + 'K';
+  return String(n || 0);
+}
+
+async function loadFeed() {
+  try {
+    const orders = await api('/api/orders?all=1');
+    const list = document.getElementById('feed-list');
+    const recent = Array.isArray(orders) ? orders.slice(0, 6) : [];
+    if (!recent.length) { list.innerHTML = '<div class="empty">Пока нет покупок</div>'; return; }
+    list.innerHTML = recent.map(o => `
+      <div class="feed-item">
+        <div class="feed-ava">${o.productEmoji || '🎁'}</div>
+        <div class="feed-text">
+          <div class="fn">@${o.username || o.userId}</div>
+          <div class="fs">купил ${o.productName} · ${timeAgo(o.createdAt)}</div>
+        </div>
+        <div class="feed-val">${o.price} ⭐</div>
+      </div>`).join('');
+  } catch { document.getElementById('feed-list').innerHTML = '<div class="empty">Нет данных</div>'; }
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'только что';
+  if (m < 60) return `${m} мин назад`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} ч назад`;
+  return `${Math.floor(h/24)} д назад`;
+}
+
+// Raffle timers
+function startTimers() {
+  let t1 = 8078, t2 = 20537;
+  setInterval(() => {
+    t1--; t2--;
+    document.getElementById('timer1').textContent = '⏱ ' + fmtTime(t1);
+    document.getElementById('timer2').textContent = '⏱ ' + fmtTime(t2);
+  }, 1000);
+}
+function fmtTime(s) {
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const sec = String(s%60).padStart(2,'0');
+  return `${h}:${m}:${sec}`;
+}
+startTimers();
+
+// ═══════════════════════════════════════════════
+//  SHOP
+// ═══════════════════════════════════════════════
+async function loadProducts() {
+  try {
+    ALL_PRODUCTS = await api('/api/products');
+    renderProducts(ALL_PRODUCTS);
+  } catch { document.getElementById('products-grid').innerHTML = '<div class="loader">Ошибка загрузки</div>'; }
+}
+
+function renderProducts(products) {
+  const grid = document.getElementById('products-grid');
+  if (!products.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Товаров нет</div>'; return; }
+  grid.innerHTML = products.map((p, i) => {
+    const outOfStock = p.limit !== null && p.stock <= 0;
+    const isHot = p.sold >= 5;
+    return `
+    <div class="prod-card ${isHot ? 'prod-hot' : ''} ${outOfStock ? 'prod-out' : ''}"
+         onclick="openBuyModal('${p.id}')">
+      <div class="prod-img">${p.emoji || '🎁'}</div>
+      <div class="prod-body">
+        <div class="prod-name">${p.name}</div>
+        <div class="prod-stock">${p.limit === null ? '♾️ Анлимит' : outOfStock ? '❌ Закончился' : `📦 ${p.stock} в наличии`}</div>
+        <button class="prod-buy">⭐ ${p.price}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterPill(el, type) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  if (type === 'all') renderProducts(ALL_PRODUCTS);
+  else if (type === 'available') renderProducts(ALL_PRODUCTS.filter(p => p.limit === null || p.stock > 0));
+  else if (type === 'unlimited') renderProducts(ALL_PRODUCTS.filter(p => p.limit === null));
+}
+
+function openBuyModal(productId) {
+  SELECTED_PRODUCT = ALL_PRODUCTS.find(p => p.id === productId);
+  if (!SELECTED_PRODUCT) return;
+  document.getElementById('bm-img').textContent = SELECTED_PRODUCT.emoji || '🎁';
+  document.getElementById('bm-name').textContent = SELECTED_PRODUCT.name;
+  document.getElementById('bm-desc').textContent = SELECTED_PRODUCT.description || '';
+  document.getElementById('bm-price').textContent = SELECTED_PRODUCT.price;
+  document.getElementById('bm-bal-info').textContent = `Баланс: ${USER?.balance || 0} ⭐`;
+  SELECTED_PAY = 'stars';
+  // Reset pay methods
+  document.querySelectorAll('#buy-pay-methods .pay-method').forEach((m,i) => {
+    m.classList.toggle('sel', i === 0);
+  });
+  document.getElementById('buy-modal').classList.add('open');
+}
+
+async function confirmBuy() {
+  if (!SELECTED_PRODUCT || !USER) return;
+
+  if (SELECTED_PAY === 'ton' || SELECTED_PAY === 'usdt') {
+    closeModal('buy-modal');
+    showToast('🔗 Переходим в CryptoBot...');
+    setTimeout(() => tg?.openLink('https://t.me/send'), 800);
+    return;
+  }
+
+  const btn = document.getElementById('bm-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Обработка...';
+
+  try {
+    const order = await api('/api/orders', 'POST', {
+      productId: SELECTED_PRODUCT.id,
+      payMethod: SELECTED_PAY
+    });
+
+    if (order.error) {
+      showToast('❌ ' + order.error);
+      btn.disabled = false;
+      btn.innerHTML = `Купить за <span id="bm-price">${SELECTED_PRODUCT.price}</span> ⭐`;
+      return;
+    }
+
+    closeModal('buy-modal');
+    USER.balance = Math.max(0, (USER.balance || 0) - SELECTED_PRODUCT.price);
+    document.getElementById('p-balance').textContent = USER.balance + ' ⭐';
+
+    setTimeout(() => {
+      document.getElementById('dm-emoji').textContent = SELECTED_PRODUCT.emoji || '🎁';
+      document.getElementById('dm-name').textContent = SELECTED_PRODUCT.name;
+      document.getElementById('delivery-modal').classList.add('open');
+    }, 200);
+
+    loadMyOrders();
+    loadFeed();
+    loadStats();
+  } catch {
+    showToast('❌ Ошибка. Попробуй снова.');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `Купить за <span id="bm-price">${SELECTED_PRODUCT.price}</span> ⭐`;
+}
+
+// ═══════════════════════════════════════════════
+//  REFERRAL
+// ═══════════════════════════════════════════════
+async function loadReferrals() {
+  if (!USER) return;
+  const botUsername = 'satapp_bot';
+  document.getElementById('ref-link').value = `https://t.me/${botUsername}?start=ref_${USER.id}`;
+  document.getElementById('ref-count').textContent = USER.referralCount || 0;
+  document.getElementById('ref-earned').textContent = ((USER.referralCount || 0) * 10) + '⭐';
+
+  try {
+    const refs = await api('/api/referrals');
+    const list = document.getElementById('ref-list');
+    if (!refs.length) { list.innerHTML = '<div class="empty">Рефералов пока нет</div>'; return; }
+    list.innerHTML = refs.map(r => `
+      <div class="ref-item">
+        <div class="ref-ava">${r.firstName?.[0] || '👤'}</div>
+        <div>
+          <div class="ref-name">${r.firstName || 'User'}${r.username ? ` (@${r.username})` : ''}</div>
+          <div class="ref-date">${new Date(r.createdAt).toLocaleDateString('ru')}</div>
+        </div>
+        <div class="ref-earned">+10 ⭐</div>
+      </div>`).join('');
+  } catch {}
+}
+
+function copyRefLink() {
+  const val = document.getElementById('ref-link').value;
+  if (tg) { tg.openLink(`https://t.me/share/url?url=${encodeURIComponent(val)}`); return; }
+  navigator.clipboard?.writeText(val);
+  showToast('✅ Ссылка скопирована!');
+}
+
+// ═══════════════════════════════════════════════
+//  PROFILE
+// ═══════════════════════════════════════════════
+function updateProfileUI() {
+  if (!USER) return;
+  document.getElementById('p-name').textContent = USER.firstName || 'User';
+  document.getElementById('p-username').textContent = USER.username ? `@${USER.username}` : '—';
+  document.getElementById('p-balance').textContent = (USER.balance || 0) + ' ⭐';
+  document.getElementById('p-refs').textContent = USER.referralCount || 0;
+  document.getElementById('p-ava').textContent = USER.firstName?.[0] || '👤';
+}
+
+async function loadMyOrders() {
+  if (!USER) return;
+  try {
+    const orders = await api('/api/orders');
+    const container = document.getElementById('my-orders');
+    document.getElementById('p-orders-count').textContent = orders.length || 0;
+    if (!orders.length) { container.innerHTML = '<div class="empty">Заказов пока нет</div>'; return; }
+    container.innerHTML = orders.slice(0, 10).map(o => `
+      <div class="order-item">
+        <div class="order-emoji">${o.productEmoji || '🎁'}</div>
+        <div class="order-info">
+          <div class="order-name">${o.productName}</div>
+          <div class="order-date">${new Date(o.createdAt).toLocaleString('ru', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <div class="order-status status-${o.status}">${
+          o.status === 'pending' ? '⏳ Ожидание' :
+          o.status === 'delivered' ? '✅ Доставлен' : '❌ Отменён'
+        }</div>
+      </div>`).join('');
+  } catch {}
+}
+
+async function applyPromo() {
+  const code = document.getElementById('promo-input').value.trim();
+  if (!code) return showToast('❌ Введите промокод');
+  try {
+    const res = await api('/api/promo/apply', 'POST', { code });
+    if (res.error) return showToast('❌ ' + res.error);
+    USER.balance = (USER.balance || 0) + res.amount;
+    document.getElementById('p-balance').textContent = USER.balance + ' ⭐';
+    document.getElementById('promo-input').value = '';
+    showToast(`✅ +${res.amount} ⭐ зачислено!`);
+  } catch { showToast('❌ Ошибка'); }
+}
+
+// ═══════════════════════════════════════════════
+//  TOPUP
+// ═══════════════════════════════════════════════
+function openTopup() {
+  TOPUP_PAY = 'stars';
+  SELECTED_AMT = 50;
+  document.querySelectorAll('#topup-pay-methods .pay-method').forEach((m,i) => m.classList.toggle('sel', i===0));
+  document.querySelectorAll('.amt-chip').forEach((c,i) => c.classList.toggle('sel', i===0));
+  document.getElementById('topup-modal').classList.add('open');
+}
+
+async function confirmTopup() {
+  if (TOPUP_PAY === 'ton' || TOPUP_PAY === 'usdt') {
+    closeModal('topup-modal');
+    showToast('🔗 Переходим в CryptoBot...');
+    setTimeout(() => tg?.openLink('https://t.me/send'), 800);
+    return;
+  }
+  try {
+    const res = await api('/api/payment/invoice', 'POST', { amount: SELECTED_AMT });
+    if (res.error) return showToast('❌ ' + res.error);
+    closeModal('topup-modal');
+    if (tg && res.link) {
+      tg.openInvoice(res.link, (status) => {
+        if (status === 'paid') {
+          showToast('✅ Баланс пополнен!');
+          setTimeout(() => { api('/api/users/' + USER.id).then(u => { USER = u; updateProfileUI(); }); }, 2000);
+        }
+      });
+    }
+  } catch { showToast('❌ Ошибка'); }
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN
+// ═══════════════════════════════════════════════
+function openAdmin() {
+  document.getElementById('admin-panel').classList.add('open');
+  loadAdminOrders();
+  loadAdminStats();
+}
+
+function closeAdmin() {
+  document.getElementById('admin-panel').classList.remove('open');
+}
+
+function adminTab(el, secId) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(secId).classList.add('active');
+  if (secId === 'admin-orders-sec') loadAdminOrders();
+  if (secId === 'admin-prods-sec') loadAdminProds();
+  if (secId === 'admin-promos-sec') loadAdminPromos();
+  if (secId === 'admin-stats-sec') loadAdminStats();
+}
+
+async function loadAdminOrders() {
+  try {
+    const orders = await api('/api/orders');
+    const container = document.getElementById('admin-orders-list');
+    if (!orders.length) { container.innerHTML = '<div class="empty">Заказов нет</div>'; return; }
+    container.innerHTML = orders.map(o => `
+      <div class="admin-order" id="order-card-${o.id}">
+        <div class="ao-top">
+          <div class="ao-emoji">${o.productEmoji || '🎁'}</div>
+          <div class="ao-name">${o.productName}</div>
+          <div class="ao-price">${o.price} ⭐</div>
+        </div>
+        <div class="ao-meta">
+          <div class="ao-tag tag-user">@${o.username || o.userId}</div>
+          <div class="ao-tag tag-time">${new Date(o.createdAt).toLocaleString('ru',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+          <div class="ao-tag tag-${o.status}">${o.status === 'pending' ? '⏳ Ожидание' : o.status === 'delivered' ? '✅ Доставлен' : '❌ Отменён'}</div>
+        </div>
+        ${o.status === 'pending' ? `
+        <div class="ao-actions">
+          <button class="ao-act-btn deliver" onclick="deliverOrder('${o.id}')">✅ Доставить</button>
+          <button class="ao-act-btn cancel" onclick="cancelOrder('${o.id}')">❌ Отменить</button>
+        </div>` : ''}
+      </div>`).join('');
+  } catch {}
+}
+
+async function deliverOrder(id) {
+  await api(`/api/orders/${id}/status`, 'PUT', { status: 'delivered' });
+  showToast('✅ Доставлено!');
+  loadAdminOrders();
+  loadAdminStats();
+}
+
+async function cancelOrder(id) {
+  await api(`/api/orders/${id}/status`, 'PUT', { status: 'cancelled' });
+  showToast('❌ Отменено');
+  loadAdminOrders();
+  loadAdminStats();
+}
+
+async function loadAdminProds() {
+  const prods = await api('/api/products');
+  const container = document.getElementById('admin-prods-list');
+  if (!prods.length) { container.innerHTML = '<div class="empty">Товаров нет</div>'; return; }
+  container.innerHTML = prods.map(p => `
+    <div class="admin-prod">
+      <div class="ap-icon">${p.emoji || '🎁'}</div>
+      <div class="ap-info">
+        <div class="ap-name">${p.name}</div>
+        <div class="ap-meta">${p.price} ⭐ · ${p.limit === null ? 'Анлимит' : `Лимит: ${p.limit}`} · ${p.sold || 0} продаж</div>
+      </div>
+      <div class="ap-actions">
+        <div class="ap-btn" onclick='openEditModal(${JSON.stringify(p)})'>✏️</div>
+        <div class="ap-btn del" onclick="deleteProduct('${p.id}')">🗑</div>
+      </div>
+    </div>`).join('');
+}
+
+async function addProduct() {
+  const name = document.getElementById('af-name').value.trim();
+  const price = document.getElementById('af-price').value;
+  const emoji = document.getElementById('af-emoji').value.trim() || '🎁';
+  const desc = document.getElementById('af-desc').value.trim();
+  const limit = document.getElementById('af-limit').value;
+  if (!name || !price) return showToast('❌ Заполни название и цену');
+  await api('/api/products', 'POST', { name, emoji, description: desc, price, limit: limit || null });
+  document.getElementById('af-name').value = '';
+  document.getElementById('af-price').value = '';
+  document.getElementById('af-emoji').value = '';
+  document.getElementById('af-desc').value = '';
+  document.getElementById('af-limit').value = '';
+  showToast('✅ Товар добавлен!');
+  loadProducts();
+}
+
+function openEditModal(p) {
+  document.getElementById('edit-id').value = p.id;
+  document.getElementById('edit-emoji').value = p.emoji || '';
+  document.getElementById('edit-name').value = p.name;
+  document.getElementById('edit-desc').value = p.description || '';
+  document.getElementById('edit-price').value = p.price;
+  document.getElementById('edit-limit').value = p.limit || '';
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+async function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  const data = {
+    emoji: document.getElementById('edit-emoji').value,
+    name: document.getElementById('edit-name').value,
+    description: document.getElementById('edit-desc').value,
+    price: document.getElementById('edit-price').value,
+    limit: document.getElementById('edit-limit').value || null
+  };
+  await api(`/api/products/${id}`, 'PUT', data);
+  closeEditModal();
+  showToast('✅ Товар обновлён!');
+  loadProducts();
+  loadAdminProds();
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Удалить товар?')) return;
+  await api(`/api/products/${id}`, 'DELETE');
+  showToast('🗑 Товар удалён');
+  loadProducts();
+  loadAdminProds();
+}
+
+async function loadAdminPromos() {
+  try {
+    const promos = await api('/api/promos');
+    const container = document.getElementById('admin-promos-list');
+    if (!promos.length) { container.innerHTML = '<div class="empty">Промокодов нет</div>'; return; }
+    container.innerHTML = promos.map(p => `
+      <div class="promo-item">
+        <div>
+          <div class="promo-code">${p.code}</div>
+          <div class="promo-info">+${p.amount} ⭐ · Использований: ${p.uses}${p.maxUses ? '/' + p.maxUses : ''}</div>
+        </div>
+        <div style="color:var(--green);font-weight:700;font-size:13px">+${p.amount}⭐</div>
+      </div>`).join('');
+  } catch {}
+}
+
+async function addPromo() {
+  const code = document.getElementById('pf-code').value.trim();
+  const amount = document.getElementById('pf-amount').value;
+  const maxUses = document.getElementById('pf-maxuses').value;
+  if (!code || !amount) return showToast('❌ Заполни код и бонус');
+  await api('/api/promos', 'POST', { code, amount, maxUses: maxUses || null });
+  document.getElementById('pf-code').value = '';
+  document.getElementById('pf-amount').value = '';
+  document.getElementById('pf-maxuses').value = '';
+  showToast('✅ Промокод создан!');
+  loadAdminPromos();
+}
+
+async function loadAdminStats() {
+  try {
+    const s = await api('/api/stats');
+    document.getElementById('as-users').textContent = s.totalUsers || 0;
+    document.getElementById('as-orders').textContent = s.totalOrders || 0;
+    document.getElementById('as-stars').textContent = s.totalStarsGiven || 0;
+    document.getElementById('as-pending').textContent = s.pendingOrders || 0;
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function setTab(id, el) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  if (id === 'profile') { loadMyOrders(); updateProfileUI(); }
+  if (id === 'ref') loadReferrals();
+  if (id === 'shop') loadProducts();
+  if (id === 'home') { loadStats(); loadFeed(); }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function bgClose(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+
+function selPay(el, method) {
+  el.closest('.pay-methods').querySelectorAll('.pay-method').forEach(m => m.classList.remove('sel'));
+  el.classList.add('sel');
+  if (el.closest('#buy-pay-methods')) SELECTED_PAY = method;
+  else TOPUP_PAY = method;
+}
+
+function selAmt(el, amt) {
+  document.querySelectorAll('.amt-chip').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  SELECTED_AMT = amt;
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════════
+//  RUN
+// ═══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
